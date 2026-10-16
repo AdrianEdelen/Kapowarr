@@ -24,6 +24,12 @@ gh pr create -R AdrianEdelen/Kapowarr --base main   # -R matters: without it gh 
 Review and merge the PR as usual. `deadbolt CI` tests it; merging publishes a new
 image, and Renovate in `server-stacks` proposes the new digest.
 
+**Docs go in the same branch.** If a fix changes something `docs/` describes,
+update `docs/` in that fix branch. Our docs then differ from upstream's exactly
+as long as the code does. (The fork doesn't publish a docs site: upstream's
+`deploy.yml` is disabled here, and Kapowarr's in-app help links to upstream's
+site regardless.)
+
 **Why branch from `upstream/development`, not `main`?** So that the branch holds
 only that fix. The same branch can then become an upstream PR as it is, without
 dragging our other changes or these fork-only files along.
@@ -56,4 +62,6 @@ their copy into `main` and the branch can be deleted.
 
 `git log --oneline upstream/development..main --no-merges` lists it. The
 fork-only files are this one and `.github/workflows/deadbolt-*.yml`. Upstream's
-own `deploy.yml` is disabled on this fork.
+own `deploy.yml` is disabled on this fork. Upstream's other branches aren't
+mirrored here; use the `upstream` remote
+(`git remote add upstream https://github.com/Casvt/Kapowarr.git`).
