@@ -1,6 +1,6 @@
 name: deadbolt CI
 
-# Fork-only workflow (see FORK.md). Tests every PR into main; on pushes to
+# Fork-only workflow. Tests every PR into main; on pushes to
 # main, tests again and publishes ghcr.io/adrianedelen/kapowarr:deadbolt.
 on:
   pull_request:

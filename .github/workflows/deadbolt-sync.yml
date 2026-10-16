@@ -1,6 +1,6 @@
 name: deadbolt upstream sync
 
-# Fork-only workflow (see FORK.md). Daily: merge upstream development into
+# Fork-only workflow. Daily: merge upstream development into
 # `sync/upstream`, run the tests, and open (or update) a PR into main.
 # A merge conflict or a test failure fails the run, which is the signal.
 on:
