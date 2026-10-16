@@ -158,8 +158,11 @@ class FlareSolverr:
                 if result.status_code != 200:
                     return False
 
+                # FlareSolverr reports {"status": "ok"}. Compatible solvers
+                # (e.g. Byparr) answer 200 without a status key, so only
+                # an explicit non-ok status counts as a failure.
                 result = result.json()
-                if result.get("status") != "ok":
+                if result.get("status", "ok") != "ok":
                     return False
 
             except RequestException:
