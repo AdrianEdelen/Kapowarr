@@ -29,6 +29,23 @@ DOWNLOAD_CHUNK_SIZE = 4194304 # 4MB Chunks
 # autopep8: on
 
 
+def _pixeldrain_refusal_reason(response: Response) -> str:
+    """Get the reason Pixeldrain gives for refusing a download, e.g.
+    `file_rate_limited_captcha_required` when hotlinking of a file is blocked.
+
+    Args:
+        response (Response): The refused response.
+
+    Returns:
+        str: The reason, or the status code if the response has none.
+    """
+    try:
+        body = response.json()
+        return f"{body['value']} ({body['message']})"
+    except (ValueError, KeyError, TypeError):
+        return f"HTTP {response.status_code}"
+
+
 class BaseDirectDownload(Download):
     @property
     def id(self) -> int:
@@ -193,6 +210,11 @@ class BaseDirectDownload(Download):
                 # Pixeldrain rate limit because of hotlinking
                 # Note: Don't report rate limit because it's on the download
                 #   and not the account.
+                LOGGER.info(
+                    "Pixeldrain refused %s: %s",
+                    download_link,
+                    _pixeldrain_refusal_reason(e.response)
+                )
                 raise DownloadServiceRateLimitReached(
                     DownloadService.PIXELDRAIN
                 )
