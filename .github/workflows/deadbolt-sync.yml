@@ -1,0 +1,69 @@
+name: deadbolt upstream sync
+
+# Fork-only workflow (see FORK.md). Daily: merge upstream development into
+# `sync/upstream`, run the tests, and open (or update) a PR into main.
+# A merge conflict or a test failure fails the run, which is the signal.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge upstream development
+        id: merge
+        run: |
+          git config user.name "deadbolt-sync"
+          git config user.email "deadbolt-sync@users.noreply.github.com"
+          git remote add upstream https://github.com/Casvt/Kapowarr.git
+          git fetch --quiet upstream development
+
+          if git merge-base --is-ancestor upstream/development HEAD; then
+            echo "main already contains upstream development"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git switch --quiet -c sync/upstream
+          if ! git merge --no-edit -m "Merge upstream development" upstream/development; then
+            git merge --abort
+            echo "::error::upstream development conflicts with main. Merge it locally (git merge upstream/development on a branch from main), resolve, and open the PR by hand."
+            exit 1
+          fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.merge.outputs.needed == 'true'
+        with:
+          python-version: "3.13"
+
+      # PRs opened with GITHUB_TOKEN don't trigger deadbolt-ci, so test here.
+      - name: Run upstream test suite
+        if: steps.merge.outputs.needed == 'true'
+        run: |
+          pip install --quiet -r requirements.txt
+          mkdir -p db
+          python -m unittest discover -s ./tests -p '*.py'
+
+      - name: Open or update the sync PR
+        if: steps.merge.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push --force origin sync/upstream
+          if [ -z "$(gh pr list --repo "$GITHUB_REPOSITORY" --head sync/upstream --state open --json number --jq '.[].number')" ]; then
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head sync/upstream \
+              --title "Sync upstream development" \
+              --body "Merges Casvt/Kapowarr \`development\` into main. Tests passed in the sync run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
