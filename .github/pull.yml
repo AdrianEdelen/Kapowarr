@@ -1,6 +1,0 @@
-version: "1"
-rules:
-  - base: development
-    upstream: Casvt:development
-    mergeMethod: merge
-    mergeUnstable: false
