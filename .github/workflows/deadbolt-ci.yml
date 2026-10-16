@@ -1,7 +1,10 @@
 name: deadbolt CI
 
-# Fork-only workflow. Tests every PR into main; on pushes to
-# main, tests again and publishes ghcr.io/adrianedelen/kapowarr:deadbolt.
+# Fork-only workflow. Tests every PR into main; on main, tests again and
+# publishes ghcr.io/adrianedelen/kapowarr:deadbolt. When dispatched on
+# sync/upstream (by deadbolt-sync) and green, merges the sync PR and
+# dispatches itself on main: merges and pushes made with GITHUB_TOKEN don't
+# trigger workflows, so the publish has to be started explicitly.
 on:
   pull_request:
     branches:
@@ -13,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: deadbolt-ci-${{ github.ref }}
@@ -42,10 +44,28 @@ jobs:
           mkdir -p db
           python -m unittest discover -s ./tests -p '*.py'
 
+  merge-sync:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/sync/upstream'
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - run: |
+          gh pr merge sync/upstream --repo "$GITHUB_REPOSITORY" --merge
+          gh workflow run deadbolt-ci.yml --repo "$GITHUB_REPOSITORY" --ref main
+
   publish:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 

@@ -1,10 +1,10 @@
 name: deadbolt upstream sync
 
 # Fork-only workflow. Daily: merge upstream development into
-# `sync/upstream` and open (or update) a PR into main. A merge conflict
-# fails the run. PRs opened with GITHUB_TOKEN don't trigger other
-# workflows, so this dispatches deadbolt CI on the branch; its checks are
-# what main's ruleset requires before the PR can merge.
+# `sync/upstream`, open (or update) a PR into main, and dispatch deadbolt CI
+# on it (PRs opened with GITHUB_TOKEN don't trigger workflows). CI merges
+# the PR if the tests pass. A conflict fails this run; failing tests leave
+# the PR open. Either way, that's when it needs a human.
 on:
   schedule:
     - cron: "17 6 * * *"
@@ -55,6 +55,6 @@ jobs:
           if [ -z "$(gh pr list --repo "$GITHUB_REPOSITORY" --head sync/upstream --state open --json number --jq '.[].number')" ]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --base main --head sync/upstream \
               --title "Sync upstream development" \
-              --body "Merges Casvt/Kapowarr \`development\` into main. Merge with a merge commit, never squash."
+              --body "Merges Casvt/Kapowarr \`development\` into main. deadbolt CI merges this automatically when the tests pass; if it's still open, they failed."
           fi
           gh workflow run deadbolt-ci.yml --repo "$GITHUB_REPOSITORY" --ref sync/upstream
