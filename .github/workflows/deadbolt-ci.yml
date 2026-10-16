@@ -1,25 +1,15 @@
 name: deadbolt CI
 
-# Fork-only workflow. Tests every PR into main; on main, tests again and
-# publishes ghcr.io/adrianedelen/kapowarr:deadbolt. When dispatched on
-# sync/upstream (by deadbolt-sync) and green, merges the sync PR and
-# dispatches itself on main: merges and pushes made with GITHUB_TOKEN don't
-# trigger workflows, so the publish has to be started explicitly.
 on:
   pull_request:
     branches:
-      - main
+      - development
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - development
 
 permissions:
   contents: read
-
-concurrency:
-  group: deadbolt-ci-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   IMAGE: ghcr.io/adrianedelen/kapowarr
@@ -29,7 +19,6 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        # Upstream's minimum, and the version the Docker image runs
         python-version: ["3.8", "3.13"]
     steps:
       - uses: actions/checkout@v4
@@ -38,30 +27,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run upstream test suite
-        run: |
-          pip install --quiet -r requirements.txt
+      - run: |
+          pip install -r requirements.txt
           mkdir -p db
           python -m unittest discover -s ./tests -p '*.py'
 
-  merge-sync:
-    needs: test
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/sync/upstream'
-    runs-on: ubuntu-22.04
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - run: |
-          gh pr merge sync/upstream --repo "$GITHUB_REPOSITORY" --merge
-          gh workflow run deadbolt-ci.yml --repo "$GITHUB_REPOSITORY" --ref main
-
   publish:
     needs: test
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
