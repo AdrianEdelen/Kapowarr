@@ -166,6 +166,32 @@ class FlareSolverr:
                 return False
         return True
 
+    @staticmethod
+    def _extract_solution(
+        url: str,
+        fs_response: Dict[str, Any]
+    ) -> Union[None, Dict[str, Any]]:
+        """Get the solution from a FlareSolverr response.
+
+        Args:
+            url (str): The URL that FlareSolverr was asked to clear.
+            fs_response (Dict[str, Any]): The response from FlareSolverr.
+
+        Returns:
+            Union[None, Dict[str, Any]]: The solution, or None if FlareSolverr
+                failed to solve the challenge (e.g. it timed out).
+        """
+        if "solution" not in fs_response:
+            reason = (
+                fs_response.get("message")
+                or fs_response.get("detail")
+                or fs_response
+            )
+            LOGGER.warning(f"FlareSolverr failed to clear {url}: {reason}")
+            return None
+
+        return fs_response["solution"]
+
     def is_enabled(self) -> bool:
         """Check if FlareSolverr is enabled.
 
@@ -222,7 +248,7 @@ class FlareSolverr:
             return
 
         with Session() as session:
-            result = self.__api_request(
+            fs_response = self.__api_request(
                 self.base_url, session,
                 {
                     'cmd': 'request.get',
@@ -230,9 +256,10 @@ class FlareSolverr:
                     'maxTimeout': Constants.FS_RESOLVE_TIMEOUT * 1000,
                     **(self.proxy_data or {})
                 }
-            )["solution"]
+            )
 
-        if result["response"] is None:
+        result = self._extract_solution(url, fs_response)
+        if result is None or result["response"] is None:
             # FlareSolverr responded, but content of
             # returned webpage is empty.
             return
@@ -284,7 +311,7 @@ class FlareSolverr:
             )
 
         async with self.session_semaphore:
-            result = (await self.__async_api_request(
+            fs_response = await self.__async_api_request(
                 self.base_url, session,
                 {
                     'cmd': 'request.get',
@@ -292,9 +319,10 @@ class FlareSolverr:
                     'maxTimeout': Constants.FS_RESOLVE_TIMEOUT * 1000,
                     **(self.proxy_data or {})
                 }
-            ))["solution"]
+            )
 
-        if result["response"] is None:
+        result = self._extract_solution(url, fs_response)
+        if result is None or result["response"] is None:
             # FlareSolverr responded, but content of
             # returned webpage is empty.
             return
